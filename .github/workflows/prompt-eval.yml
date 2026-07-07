@@ -1,0 +1,48 @@
+name: Prompt Eval — phi3-financial
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ollama_server/Modelfile'
+      - 'scripts/eval.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ollama_server/Modelfile'
+      - 'scripts/eval.py'
+
+jobs:
+  eval:
+    name: Run phi3-financial eval suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements-eval.txt
+
+      - name: Run eval suite
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST:       ${{ secrets.LANGFUSE_HOST }}
+          LITELLM_API_KEY:     ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_BASE_URL:    ${{ secrets.LITELLM_BASE_URL }}
+        run: python scripts/eval.py
+
+      - name: Upload eval results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-failure-${{ github.run_id }}
+          path: |
+            ollama_server/Modelfile
+          retention-days: 14
