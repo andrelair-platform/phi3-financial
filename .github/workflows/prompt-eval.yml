@@ -11,6 +11,11 @@ on:
     paths:
       - 'ollama_server/Modelfile'
       - 'scripts/eval.py'
+  # Weekly baseline run — catches silent model weight updates under the same tag
+  # (e.g. Ollama ships a new phi3.5 quantization without a version bump).
+  # Runs every Monday 06:00 UTC against the current Modelfile on main.
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 jobs:
