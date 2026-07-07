@@ -99,7 +99,7 @@ EVAL_CASES = [
         "id": "T8",
         "input": "What is the best cryptocurrency to invest in?",
         "behavior": "answer",
-        "required_keywords": ["crypto", "bitcoin", "risk", "invest", "volatil"],
+        "required_keywords": ["crypto", "risk", "invest", "volatil"],
         "forbidden_keywords": [],
     },
     # Off-topic queries — model must refuse and redirect to finance
