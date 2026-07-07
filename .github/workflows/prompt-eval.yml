@@ -30,6 +30,21 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements-eval.txt
 
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Trust minicloud CA
+        env:
+          MINICLOUD_CA_CERT: ${{ secrets.MINICLOUD_CA_CERT }}
+        run: |
+          echo "$MINICLOUD_CA_CERT" | base64 -d > /tmp/minicloud-ca.crt
+          sudo cp /tmp/minicloud-ca.crt /usr/local/share/ca-certificates/minicloud-ca.crt
+          sudo update-ca-certificates
+          # Append to certifi so httpx (used by openai client) trusts it
+          cat /tmp/minicloud-ca.crt >> $(python3 -c "import certifi; print(certifi.where())")
+
       - name: Run eval suite
         env:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
@@ -37,9 +52,9 @@ jobs:
           LANGFUSE_HOST:       ${{ secrets.LANGFUSE_HOST }}
           LITELLM_API_KEY:     ${{ secrets.LITELLM_API_KEY }}
           LITELLM_BASE_URL:    ${{ secrets.LITELLM_BASE_URL }}
-          # Cloud model for CI — same system prompt, publicly reachable from GHA.
-          # Local phi3-financial is not directly reachable from GitHub Actions runners.
-          EVAL_MODEL:          ${{ secrets.EVAL_MODEL }}
+          # EVAL_MODEL defaults to phi3-financial in eval.py — reaches local Ollama
+          # via Tailscale → 10.0.0.200 → NGINX → LiteLLM → Ollama (fast-heron).
+          # No EVAL_MODEL secret needed; remove from env if set to something else.
         run: python scripts/eval.py
 
       - name: Upload eval results on failure
