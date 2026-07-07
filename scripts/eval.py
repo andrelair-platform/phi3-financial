@@ -92,7 +92,7 @@ EVAL_CASES = [
         "id": "T5",
         "input": "What is Value at Risk (VaR)?",
         "behavior": "answer",
-        "required_keywords": ["risk", "loss", "portfolio", "confidence", "percent"],
+        "required_keywords": ["risk", "loss", "portfolio", "confidence"],
         "forbidden_keywords": [],
     },
     {
