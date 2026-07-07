@@ -222,14 +222,6 @@ def main() -> int:
             comment=reason,
         )
 
-        # Link trace to dataset run
-        lf.create_dataset_run_item(  # type: ignore[attr-defined]
-            dataset_name=DATASET_NAME,
-            run_name=run_name,
-            trace_id=trace.id,
-            metadata={"case_id": case["id"]},
-        )
-
         status = "✅ PASS" if score_val == 1.0 else "❌ FAIL"
         print(f"  [{case['id']}] {status}  {case['behavior'].upper():6}  {case['input'][:55]}")
         print(f"         → {reason}")
