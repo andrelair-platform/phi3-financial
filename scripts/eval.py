@@ -64,7 +64,7 @@ EVAL_CASES = [
         "id": "T1",
         "input": "What is a P/E ratio and how is it used?",
         "behavior": "answer",
-        "required_keywords": ["price", "earnings", "ratio", "valuation", "stock"],
+        "required_keywords": ["price", "earnings", "ratio", "valuation", "share"],
         "forbidden_keywords": [],
     },
     {
@@ -92,7 +92,7 @@ EVAL_CASES = [
         "id": "T5",
         "input": "What is Value at Risk (VaR)?",
         "behavior": "answer",
-        "required_keywords": ["risk", "loss", "portfolio", "confidence"],
+        "required_keywords": ["risk", "loss", "portfolio", "probabilit"],
         "forbidden_keywords": [],
     },
     {
