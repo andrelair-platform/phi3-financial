@@ -22,6 +22,7 @@ Exit codes:
 import os
 import sys
 import datetime
+import time
 from pathlib import Path
 
 from openai import OpenAI
@@ -46,6 +47,18 @@ PROMPT_VERSION = "2.1.0"
 # against a cloud model (e.g. Groq llama3) when the local cluster is unreachable.
 MODEL          = os.environ.get("EVAL_MODEL", "phi3-financial")
 PASS_THRESHOLD = 1.0  # 100% — all tests must pass
+
+# Retry config for infrastructure errors (502 Bad Gateway, connection refused).
+# Root cause: ArgoCD syncing a deployment change mid-run triggers a Recreate restart
+# on the LiteLLM pod. initialDelaySeconds=60 + readiness probe cycle = ~90s downtime.
+# Three retries at 10s / 30s / 60s cover that window without masking real model failures.
+_RETRY_DELAYS = [10, 30, 60]  # seconds between attempts 1→2, 2→3, 3→4
+
+
+def _is_infra_error(exc: Exception) -> bool:
+    """True for 5xx / connection errors that indicate the backend is temporarily down."""
+    msg = repr(exc).lower()
+    return any(s in msg for s in ("<html>", "502", "503", "504", "connection", "timeout"))
 
 # ── System prompt (read from Modelfile so this script stays in sync) ──────────
 
@@ -324,23 +337,34 @@ def main() -> int:
     results: list[float] = []
 
     for case in EVAL_CASES:
-        # Call the model
+        # Call the model — retry on infrastructure errors (502, connection reset, etc.)
         response_text = ""
         error = None
-        try:
-            completion = oai.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user",   "content": case["input"]},
-                ],
-                temperature=0.1,
-                max_tokens=512,
-            )
-            response_text = completion.choices[0].message.content or ""
-        except Exception as exc:
-            error = str(exc)
-            print(f"         [debug] {type(exc).__name__}: {repr(exc)[:300]}")
+        for attempt, delay in enumerate([0] + _RETRY_DELAYS, start=1):
+            if delay:
+                print(f"         [retry {attempt}/{len(_RETRY_DELAYS)+1}] waiting {delay}s before retry...")
+                time.sleep(delay)
+            try:
+                completion = oai.chat.completions.create(
+                    model=MODEL,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user",   "content": case["input"]},
+                    ],
+                    temperature=0.1,
+                    max_tokens=512,
+                )
+                response_text = completion.choices[0].message.content or ""
+                error = None
+                break  # success — stop retrying
+            except Exception as exc:
+                error = str(exc)
+                if _is_infra_error(exc) and attempt <= len(_RETRY_DELAYS):
+                    print(f"         [infra error attempt {attempt}] {type(exc).__name__}: {repr(exc)[:200]}")
+                    continue  # retry
+                # Non-infra error or retries exhausted — log and stop
+                print(f"         [debug] {type(exc).__name__}: {repr(exc)[:300]}")
+                break
 
         score_val, reason = (0.0, f"FAIL — model error: {error}") if error else score_response(case, response_text)
 
