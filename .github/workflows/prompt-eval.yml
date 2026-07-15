@@ -54,19 +54,26 @@ jobs:
           echo "${{ secrets.MINICLOUD_CA_CERT }}" \
             >> $(python3 -c "import certifi; print(certifi.where())")
 
-      - name: Check LiteLLM connectivity
+      - name: Diagnose LiteLLM connectivity
         env:
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
         run: |
-          # Tailscale subnet routes need a few seconds to propagate after connect.
-          # Retry for up to 30s before failing — same pattern as Harbor Docker push.
-          for i in 1 2 3 4 5 6; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "${LITELLM_BASE_URL}/health" 2>/dev/null || echo "000")
-            echo "LiteLLM /health → HTTP ${STATUS} (attempt ${i}/6)"
-            [ "${STATUS}" = "200" ] && break
-            [ "${i}" = "6" ] && { echo "LiteLLM unreachable after 30s — aborting eval"; exit 1; }
-            sleep 5
-          done
+          HOST=$(echo "${LITELLM_BASE_URL}" | sed 's|https://||;s|http://||;s|/.*||')
+          echo "=== Tailscale status ==="
+          tailscale status 2>&1 || true
+          echo "=== DNS resolution ==="
+          dig +short "${HOST}" || nslookup "${HOST}" 2>&1 | head -5 || true
+          echo "=== TCP connectivity (port 443) ==="
+          timeout 6 bash -c "echo >/dev/tcp/${HOST}/443" 2>&1 && echo "TCP 443 OPEN" || echo "TCP 443 FAILED"
+          echo "=== TCP connectivity (port 80) ==="
+          timeout 6 bash -c "echo >/dev/tcp/${HOST}/80" 2>&1 && echo "TCP 80 OPEN" || echo "TCP 80 FAILED"
+          echo "=== HTTPS health check (insecure) ==="
+          curl -sk -o /dev/null -w "HTTP %{http_code}" --connect-timeout 5 "https://${HOST}/health" 2>&1 || true
+          echo ""
+          echo "=== HTTPS health check (with CA) ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" --cacert /usr/local/share/ca-certificates/minicloud-ca.crt \
+            --connect-timeout 5 "https://${HOST}/health" 2>&1 || true
+          echo ""
 
       - name: Run eval suite
         env:
