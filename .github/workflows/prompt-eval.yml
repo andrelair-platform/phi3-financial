@@ -54,6 +54,14 @@ jobs:
           echo "${{ secrets.MINICLOUD_CA_CERT }}" \
             >> $(python3 -c "import certifi; print(certifi.where())")
 
+      - name: Check LiteLLM connectivity
+        env:
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${LITELLM_BASE_URL}/health" || echo "FAILED")
+          echo "LiteLLM /health → HTTP ${STATUS}"
+          [ "${STATUS}" = "200" ] || { echo "LiteLLM unreachable — aborting eval"; exit 1; }
+
       - name: Run eval suite
         env:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
