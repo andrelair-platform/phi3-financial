@@ -12,6 +12,18 @@
 
 ---
 
+## Screenshots
+
+| Live chat (sub-1s via Groq) | Langfuse Prompt Management |
+|---|---|
+| ![Chat](docs/screenshots/screenshot-chat.png) | ![Prompts](docs/screenshots/screenshot-langfuse-prompts.png) |
+
+| Langfuse Eval Traces |
+|---|
+| ![Traces](docs/screenshots/screenshot-langfuse-traces.png) |
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
